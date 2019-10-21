@@ -46,7 +46,7 @@ module tb_api_key_extension();
   //----------------------------------------------------------------
   // Internal constant and parameter definitions.
   //----------------------------------------------------------------
-  parameter DEBUG     = 1;
+  parameter DEBUG = 0;
 
   parameter CLK_HALF_PERIOD = 1;
   parameter CLK_PERIOD      = 2 * CLK_HALF_PERIOD;
@@ -177,9 +177,14 @@ module tb_api_key_extension();
                dut_command, dut_address, dut_write_data);
       $display("status:  0x%02x, read_data: 0x%08x\n",
                dut_status, dut_read_data);
-      $display("\n");
+      $display("");
 
-      $display("Internal states:");
+      $display("Internal data fields:");
+      $display("op_a_reg: 0x%08x, op_b_reg: 0x%08x, sum_reg: 0x%08x",
+               dut.op_a_reg, dut.op_b_reg, dut.sum_reg);
+      $display("");
+
+      $display("Internal control:");
       $display("cs_reg: 0x%01x, we_reg: 0x%01x", dut.cs_reg, dut.we_reg);
       $display("address_reg: 0x%08x, read_data_reg: 0x%08x, write_data_reg: 0x%08x",
                dut.address_reg, dut.read_data_reg, dut.write_data_reg);
@@ -192,17 +197,11 @@ module tb_api_key_extension();
 
 
   //----------------------------------------------------------------
-  // reset_dut()
-  //
-  // Toggle reset to put the DUT into a well known state.
+  // inc_tc_ctr
   //----------------------------------------------------------------
-  task reset_dut;
-    begin
-      tb_reset = 1;
-      #(2 * CLK_PERIOD);
-      tb_reset = 0;
-    end
-  endtask // reset_dut
+  task inc_tc_ctr;
+    tc_ctr = tc_ctr + 1;
+  endtask // inc_tc_ctr
 
 
   //----------------------------------------------------------------
@@ -223,6 +222,24 @@ module tb_api_key_extension();
         end
     end
   endtask // display_test_results
+
+
+  //----------------------------------------------------------------
+  // wait_ready()
+  //----------------------------------------------------------------
+  task wait_ready;
+    begin
+      $display("wait_ready: called.");
+      #(4 * CLK_PERIOD);
+      while (dut_status == 1'h1)
+        #(CLK_PERIOD);
+      $display("wait_ready: ready deasserted.");
+
+      while (dut_status == 1'h0)
+        #(CLK_PERIOD);
+      $display("wait_ready: ready asserted.");
+    end
+  endtask // wait_ready
 
 
   //----------------------------------------------------------------
@@ -249,6 +266,7 @@ module tb_api_key_extension();
       dut_rosc_ready     = 1'h0;
 
       $display("*** init_sim() completed.");
+      $display("\n");
     end
   endtask // init_sim
 
@@ -258,17 +276,19 @@ module tb_api_key_extension();
   //----------------------------------------------------------------
   task tc_verify_reset;
     begin: tc_verify_reset;
+      inc_tc_ctr();
       $display("*** tc_verify_reset started.");
 
-      #(10 * CLK_PERIOD);
+      #(2 * CLK_PERIOD);
       $display("*** tc_verify_reset: Asserting reset.");
       tb_reset = 1;
-      #(10 * CLK_PERIOD);
+      #(2 * CLK_PERIOD);
       tb_reset = 0;
       $display("*** tc_verify_reset: Deasserting reset.");
-      #(10 * CLK_PERIOD);
+      #(2 * CLK_PERIOD);
 
       $display("*** tc_verify_reset completed.");
+      $display("\n");
     end
   endtask // tc_verify_reset
 
@@ -279,16 +299,153 @@ module tb_api_key_extension();
   //----------------------------------------------------------------
   task tc_read_api_name_version;
     begin
+      inc_tc_ctr();
       $display("tc_read_api_name_version started.");
+
 
       dut_command = COMMAND_READ;
       dut_address = 32'h00000000;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
 
-      #(20 * CLK_PERIOD);
+      if (dut_read_data == dut.CORE_NAME0)
+        $display("tc_read_api_name_version: Correct NAME0 read.");
+      else
+        $display("tc_read_api_name_version: Incorrect NAME0 read.");
+      #(4 * CLK_PERIOD);
+
+
+      dut_command = COMMAND_READ;
+      dut_address = 32'h00000001;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
+
+      if (dut_read_data == dut.CORE_NAME1)
+        $display("tc_read_api_name_version: Correct NAME1 read.");
+      else
+        $display("tc_read_api_name_version: Incorrect NAME1 read.");
+      #(4 * CLK_PERIOD);
+
+
+      dut_command = COMMAND_READ;
+      dut_address = 32'h00000002;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
+
+      if (dut_read_data == dut.CORE_VERSION)
+        $display("tc_read_api_name_version: Correct VERSION read.");
+      else
+        $display("tc_read_api_name_version: Incorrect VERSION read.");
+      #(4 * CLK_PERIOD);
+
 
       $display("tc_read_api_name_version completed.");
+      $display("\n");
     end
   endtask // tc_read_api_name_version
+
+
+  //----------------------------------------------------------------
+  // tc_write_operands_read_sum
+  //----------------------------------------------------------------
+  task tc_write_operands_read_sum;
+    begin
+      inc_tc_ctr();
+      $display("tc_write_operands_read_sum: started.");
+
+
+      dut_command    = COMMAND_WRITE;
+      dut_address    = 32'h00000010;
+      dut_write_data = 32'hdead0000;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+
+      dut_command    = COMMAND_WRITE;
+      dut_address    = 32'h00000011;
+      dut_write_data = 32'h0000beef;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+      dut_command = COMMAND_READ;
+      dut_address = 32'h00000012;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+      if (dut_read_data == 32'hdeadbeef)
+        $display("tc_read_api_name_version: Correct sum read.");
+      else
+        $display("tc_read_api_name_version: Incorrect sum read.");
+
+      $display("tc_write_operands_read_sum: completed.");
+      $display("\n");
+    end
+  endtask // tc_write_operands_read_sum
+
+
+  //----------------------------------------------------------------
+  // tc_read_rosc
+  //----------------------------------------------------------------
+  task tc_read_rosc;
+    begin
+      inc_tc_ctr();
+      $display("tc_read_rosc: started.");
+
+      dut_rosc_read_data = 32'h55aa55aa;
+      dut_rosc_ready     = 1'h1;
+
+      dut_command = COMMAND_READ;
+      dut_address = 32'hfe000000;
+      wait_ready();
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+      if (dut_read_data == 32'h55aa55aa)
+        $display("tc_read_rosc: Correct rosc data read.");
+      else
+        $display("tc_read_rosc: Incorrect sum read: 0x%08x",
+                 dut_read_data);
+
+      $display("tc_read_rosc: completed.");
+      $display("\n");
+    end
+  endtask // tc_read_rosc
+
+
+  //----------------------------------------------------------------
+  // tc_write_nts0
+  //----------------------------------------------------------------
+  task tc_write_nts0;
+    begin
+      inc_tc_ctr();
+      $display("tc_write_nts0: started.");
+
+      dut_nts0_ready = 1'h1;
+
+      dut_command = COMMAND_WRITE;
+      dut_address = 32'h10000002;
+      dut_write_data = 32'hff00ff00;
+      wait_ready();
+      #(4 * CLK_PERIOD);
+
+      if ((dut_nts0_write_data == 32'hff00ff00) &&
+          (dut_nts0_address == 24'h000002))
+        $display("tc_read_rosc: Correct data and address written.");
+      else
+        $display("tc_read_rosc: Incorrect data and address written:: 0x%08x to 0x%06x",
+                 dut_nts0_write_data, dut_nts0_address);
+
+      #(4 * CLK_PERIOD);
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+      $display("tc_write_nts0: completed.");
+      $display("\n");
+    end
+  endtask // tc_write_nts0
 
 
   //----------------------------------------------------------------
@@ -304,8 +461,11 @@ module tb_api_key_extension();
 
       init_sim();
       tc_verify_reset();
-      display_test_results();
       tc_read_api_name_version();
+      tc_write_operands_read_sum();
+      tc_read_rosc();
+      tc_write_nts0();
+      display_test_results();
 
       $display("");
       $display("*** API Extension simulation done. ***");

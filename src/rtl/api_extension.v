@@ -109,7 +109,7 @@ module api_extension(
   localparam API_CTRL_WAIT    = 2'h1;
   localparam API_CTRL_DONE    = 2'h2;
 
-  localparam DEF_WAIT_CYCLES  = 3'h3;
+  localparam DEF_WAIT_CYCLES  = 3'h2;
 
 
   //----------------------------------------------------------------
