@@ -46,7 +46,7 @@ module tb_api_key_extension();
   //----------------------------------------------------------------
   // Internal constant and parameter definitions.
   //----------------------------------------------------------------
-  parameter DEBUG     = 0;
+  parameter DEBUG     = 1;
 
   parameter CLK_HALF_PERIOD = 1;
   parameter CLK_PERIOD      = 2 * CLK_HALF_PERIOD;
@@ -65,6 +65,14 @@ module tb_api_key_extension();
   localparam API_ADDR_OP_A    = 8'h10;
   localparam API_ADDR_OP_B    = 8'h11;
   localparam API_ADDR_SUM     = 8'h12;
+
+  localparam COMMAND_IDLE     = 2'h0;
+  localparam COMMAND_READ     = 2'h1;
+  localparam COMMAND_WRITE    = 2'h3;
+
+  localparam STATUS_BUSY      = 2'h0;
+  localparam STATUS_READY     = 2'h1;
+  localparam STATUS_ERROR     = 2'h3;
 
 
   //----------------------------------------------------------------
@@ -165,6 +173,19 @@ module tb_api_key_extension();
       $display("cycle: 0x%016x", cycle_ctr);
       $display("Inputs and outputs:");
       $display("-------------------");
+      $display("command: 0x%02x, address: 0x%08x, write_data: 0x%08x\n",
+               dut_command, dut_address, dut_write_data);
+      $display("status:  0x%02x, read_data: 0x%08x\n",
+               dut_status, dut_read_data);
+      $display("\n");
+
+      $display("Internal states:");
+      $display("cs_reg: 0x%01x, we_reg: 0x%01x", dut.cs_reg, dut.we_reg);
+      $display("address_reg: 0x%08x, read_data_reg: 0x%08x, write_data_reg: 0x%08x",
+               dut.address_reg, dut.read_data_reg, dut.write_data_reg);
+      $display("api_extension_ctrl_reg: 0x%02x, wait_cycles_ctr_reg: 0x%02x",
+               dut.api_extension_ctrl_reg, dut.wait_cycles_ctr_reg);
+
       $display("\n");
     end
   endtask // dump_dut_state
@@ -233,14 +254,41 @@ module tb_api_key_extension();
 
 
   //----------------------------------------------------------------
-  // tc01_verify_reset
+  // tc_verify_reset
   //----------------------------------------------------------------
-  task tc01_verify_reset;
-    begin: tc01_verify_reset;
-        $display("*** TC01: Verify Reset completed");
-        error_ctr = error_ctr + 1;
-      end
-  endtask // tc01_verify_reset
+  task tc_verify_reset;
+    begin: tc_verify_reset;
+      $display("*** tc_verify_reset started.");
+
+      #(10 * CLK_PERIOD);
+      $display("*** tc_verify_reset: Asserting reset.");
+      tb_reset = 1;
+      #(10 * CLK_PERIOD);
+      tb_reset = 0;
+      $display("*** tc_verify_reset: Deasserting reset.");
+      #(10 * CLK_PERIOD);
+
+      $display("*** tc_verify_reset completed.");
+    end
+  endtask // tc_verify_reset
+
+
+  //----------------------------------------------------------------
+  // tc_read_api_name_version
+  // Test that we can read out name and version fields.
+  //----------------------------------------------------------------
+  task tc_read_api_name_version;
+    begin
+      $display("tc_read_api_name_version started.");
+
+      dut_command = COMMAND_READ;
+      dut_address = 32'h00000000;
+
+      #(20 * CLK_PERIOD);
+
+      $display("tc_read_api_name_version completed.");
+    end
+  endtask // tc_read_api_name_version
 
 
   //----------------------------------------------------------------
@@ -255,7 +303,9 @@ module tb_api_key_extension();
       $display("");
 
       init_sim();
+      tc_verify_reset();
       display_test_results();
+      tc_read_api_name_version();
 
       $display("");
       $display("*** API Extension simulation done. ***");
