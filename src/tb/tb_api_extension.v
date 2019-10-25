@@ -54,8 +54,9 @@ module tb_api_key_extension();
   // API
   // Address space prefixes. We support 256 new top level modules.
   localparam API_PREFIX       = 8'h00;
+  localparam DP_PREFIX        = 8'h10;
+  localparam NTS_PREFIX       = 8'h20;
   localparam ROSC_PREFIX      = 8'hfe;
-  localparam NTS0_PREFIX      = 8'h10;
 
   // The API for the API extension itself.
   localparam API_ADDR_NAME0   = 8'h00;
@@ -93,12 +94,18 @@ module tb_api_key_extension();
   reg [31 : 0]  dut_address;
   reg [31 : 0]  dut_write_data;
   wire [31 : 0] dut_read_data;
-  wire          dut_nts0_cs;
-  wire          dut_nts0_we;
-  wire [23 : 0] dut_nts0_address;
-  wire [31 : 0] dut_nts0_write_data;
-  reg  [31 : 0] dut_nts0_read_data;
-  reg           dut_nts0_ready;
+  wire          dut_dp_cs;
+  wire          dut_dp_we;
+  wire [23 : 0] dut_dp_address;
+  wire [31 : 0] dut_dp_write_data;
+  reg  [31 : 0] dut_dp_read_data;
+  reg           dut_dp_ready;
+  wire          dut_nts_cs;
+  wire          dut_nts_we;
+  wire [23 : 0] dut_nts_address;
+  wire [31 : 0] dut_nts_write_data;
+  reg  [31 : 0] dut_nts_read_data;
+  reg           dut_nts_ready;
   wire          dut_rosc_cs;
   wire          dut_rosc_we;
   wire [7 : 0]  dut_rosc_address;
@@ -112,17 +119,27 @@ module tb_api_key_extension();
   api_extension dut(
                     .clk(tb_clk),
                     .reset(tb_reset),
+
                     .command(dut_command),
                     .status(dut_status),
                     .address(dut_address),
                     .write_data(dut_write_data),
                     .read_data(dut_read_data),
-                    .nts0_cs(dut_nts0_cs),
-                    .nts0_we(dut_nts0_we),
-                    .nts0_address(dut_nts0_address),
-                    .nts0_write_data(dut_nts0_write_data),
-                    .nts0_read_data(dut_nts0_read_data),
-                    .nts0_ready(dut_nts0_ready),
+
+                    .dp_cs(dut_dp_cs),
+                    .dp_we(dut_dp_we),
+                    .dp_address(dut_dp_address),
+                    .dp_write_data(dut_dp_write_data),
+                    .dp_read_data(dut_dp_read_data),
+                    .dp_ready(dut_dp_ready),
+
+                    .nts_cs(dut_nts_cs),
+                    .nts_we(dut_nts_we),
+                    .nts_address(dut_nts_address),
+                    .nts_write_data(dut_nts_write_data),
+                    .nts_read_data(dut_nts_read_data),
+                    .nts_ready(dut_nts_ready),
+
                     .rosc_cs(dut_rosc_cs),
                     .rosc_we(dut_rosc_we),
                     .rosc_address(dut_rosc_address),
@@ -260,8 +277,10 @@ module tb_api_key_extension();
       dut_command        = 2'h0;
       dut_address        = 32'h0;
       dut_write_data     = 32'h0;
-      dut_nts0_read_data = 32'h0;
-      dut_nts0_ready     = 1'h0;
+      dut_dp_read_data   = 32'h0;
+      dut_dp_ready       = 1'h0;
+      dut_nts_read_data  = 32'h0;
+      dut_nts_ready      = 1'h0;
       dut_rosc_read_data = 32'h0;
       dut_rosc_ready     = 1'h0;
 
@@ -416,27 +435,60 @@ module tb_api_key_extension();
 
 
   //----------------------------------------------------------------
-  // tc_write_nts0
+  // tc_write_dp
   //----------------------------------------------------------------
-  task tc_write_nts0;
+  task tc_write_dp;
+    begin
+      inc_tc_ctr();
+      $display("tc_write_dp: started.");
+
+      dut_dp_ready = 1'h1;
+
+      dut_command = COMMAND_WRITE;
+      dut_address = 32'h10000002;
+      dut_write_data = 32'hbeefbeef;
+      wait_ready();
+      #(4 * CLK_PERIOD);
+
+      if ((dut_dp_write_data == 32'hbeefbeef) &&
+          (dut_dp_address == 24'h000002))
+        $display("tc_write_dp: Correct data and address written.");
+      else
+        $display("tc_write_dp: Incorrect data and address written:: 0x%08x to 0x%06x",
+                 dut_dp_write_data, dut_dp_address);
+
+      #(4 * CLK_PERIOD);
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+      $display("tc_write_dp: completed.");
+      $display("\n");
+    end
+  endtask // tc_write_dp
+
+
+  //----------------------------------------------------------------
+  // tc_write_nts
+  //----------------------------------------------------------------
+  task tc_write_nts;
     begin
       inc_tc_ctr();
       $display("tc_write_nts0: started.");
 
-      dut_nts0_ready = 1'h1;
+      dut_nts_ready = 1'h1;
 
       dut_command = COMMAND_WRITE;
-      dut_address = 32'h10000002;
+      dut_address = 32'h20000002;
       dut_write_data = 32'hff00ff00;
       wait_ready();
       #(4 * CLK_PERIOD);
 
-      if ((dut_nts0_write_data == 32'hff00ff00) &&
-          (dut_nts0_address == 24'h000002))
-        $display("tc_read_rosc: Correct data and address written.");
+      if ((dut_nts_write_data == 32'hff00ff00) &&
+          (dut_nts_address == 24'h000002))
+        $display("tc_write_nts: Correct data and address written.");
       else
-        $display("tc_read_rosc: Incorrect data and address written:: 0x%08x to 0x%06x",
-                 dut_nts0_write_data, dut_nts0_address);
+        $display("tc_write_nts: Incorrect data and address written:: 0x%08x to 0x%06x",
+                 dut_nts_write_data, dut_nts_address);
 
       #(4 * CLK_PERIOD);
       dut_command = COMMAND_IDLE;
@@ -445,7 +497,7 @@ module tb_api_key_extension();
       $display("tc_write_nts0: completed.");
       $display("\n");
     end
-  endtask // tc_write_nts0
+  endtask // tc_write_nts
 
 
   //----------------------------------------------------------------
@@ -464,7 +516,8 @@ module tb_api_key_extension();
       tc_read_api_name_version();
       tc_write_operands_read_sum();
       tc_read_rosc();
-      tc_write_nts0();
+      tc_write_dp();
+      tc_write_nts();
       display_test_results();
 
       $display("");
