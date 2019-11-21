@@ -60,19 +60,26 @@ module api_extension(
                      output wire [31 : 0] read_data,
 
                      // Access ports to extensions.
-                     output wire          dp_cs,
-                     output wire          dp_we,
-                     output wire [23 : 0] dp_address,
-                     output wire [31 : 0] dp_write_data,
-                     input wire  [31 : 0] dp_read_data,
-                     input wire           dp_ready,
-
                      output wire          nts_cs,
                      output wire          nts_we,
                      output wire [23 : 0] nts_address,
                      output wire [31 : 0] nts_write_data,
                      input wire  [31 : 0] nts_read_data,
                      input wire           nts_ready,
+
+                     output wire          pp_cs,
+                     output wire          pp_we,
+                     output wire [23 : 0] pp_address,
+                     output wire [31 : 0] pp_write_data,
+                     input wire  [31 : 0] pp_read_data,
+                     input wire           pp_ready,
+
+                     output wire          dp_cs,
+                     output wire          dp_we,
+                     output wire [23 : 0] dp_address,
+                     output wire [31 : 0] dp_write_data,
+                     input wire  [31 : 0] dp_read_data,
+                     input wire           dp_ready,
 
                      output wire          rosc_cs,
                      output wire          rosc_we,
@@ -88,8 +95,9 @@ module api_extension(
   //----------------------------------------------------------------
   // Address space prefixes. We support 256 new top level modules.
   localparam API_PREFIX       = 8'h00;
-  localparam DP_PREFIX        = 8'h10;
+  localparam PP_PREFIX        = 8'h10;
   localparam NTS_PREFIX       = 8'h20;
+  localparam DP_PREFIX        = 8'h40;
   localparam ROSC_PREFIX      = 8'hfe;
 
   // The API for the API extension itself.
@@ -103,7 +111,7 @@ module api_extension(
 
   localparam CORE_NAME0       = 32'h6170692d; // "api-"
   localparam CORE_NAME1       = 32'h65787420; // "ext "
-  localparam CORE_VERSION     = 32'h302e3230; // "0.20"
+  localparam CORE_VERSION     = 32'h302e3231; // "0.21"
 
   localparam COMMAND_IDLE     = 2'h0;
   localparam COMMAND_READ     = 2'h1;
@@ -172,10 +180,12 @@ module api_extension(
   //----------------------------------------------------------------
   // Wires.
   //----------------------------------------------------------------
-  reg tmp_dp_cs;
-  reg tmp_dp_we;
   reg tmp_nts_cs;
   reg tmp_nts_we;
+  reg tmp_pp_cs;
+  reg tmp_pp_we;
+  reg tmp_dp_cs;
+  reg tmp_dp_we;
   reg tmp_rosc_cs;
   reg tmp_rosc_we;
   reg address_error;
@@ -184,21 +194,26 @@ module api_extension(
   //----------------------------------------------------------------
   // Concurrent connectivity for ports etc.
   //----------------------------------------------------------------
-  assign status    = status_reg;
-  assign read_data = read_data_reg;
+  assign status          = status_reg;
+  assign read_data       = read_data_reg;
 
-  assign dp_cs         = tmp_nts_cs;
-  assign dp_we         = tmp_nts_we;
-  assign dp_address    = address_reg[23 : 0];
-  assign dp_write_data = write_data_reg;
+  assign nts_cs          = tmp_nts_cs;
+  assign nts_we          = tmp_nts_we;
+  assign nts_address     = address_reg[23 : 0];
+  assign nts_write_data  = write_data_reg;
 
-  assign nts_cs         = tmp_nts_cs;
-  assign nts_we         = tmp_nts_we;
-  assign nts_address    = address_reg[23 : 0];
-  assign nts_write_data = write_data_reg;
+  assign pp_cs           = tmp_pp_cs;
+  assign pp_we           = tmp_pp_we;
+  assign pp_address      = address_reg[23 : 0];
+  assign pp_write_data   = write_data_reg;
 
-  assign rosc_cs = tmp_rosc_cs;
-  assign rosc_we = tmp_rosc_we;
+  assign dp_cs           = tmp_dp_cs;
+  assign dp_we           = tmp_dp_we;
+  assign dp_address      = address_reg[23 : 0];
+  assign dp_write_data   = write_data_reg;
+
+  assign rosc_cs         = tmp_rosc_cs;
+  assign rosc_we         = tmp_rosc_we;
   assign rosc_address    = address_reg[7 : 0];
   assign rosc_write_data = write_data_reg;
 
@@ -272,10 +287,12 @@ module api_extension(
   //----------------------------------------------------------------
   always @*
     begin : addr_mux
-      tmp_dp_cs     = 1'h0;
-      tmp_dp_we     = 1'h0;
       tmp_nts_cs    = 1'h0;
       tmp_nts_we    = 1'h0;
+      tmp_pp_cs     = 1'h0;
+      tmp_pp_we     = 1'h0;
+      tmp_dp_cs     = 1'h0;
+      tmp_dp_we     = 1'h0;
       tmp_rosc_cs   = 1'h0;
       tmp_rosc_we   = 1'h0;
       ready_new     = 1'h0;
@@ -316,15 +333,13 @@ module api_extension(
               end
           end
 
-
-        DP_PREFIX:
+        PP_PREFIX:
           begin
-            tmp_dp_cs     = cs_reg;
-            tmp_dp_we     = we_reg;
-            ready_new     = dp_ready;
-            read_data_new = dp_read_data;
+            tmp_pp_cs     = cs_reg;
+            tmp_pp_we     = we_reg;
+            ready_new     = pp_ready;
+            read_data_new = pp_read_data;
           end
-
 
         NTS_PREFIX:
           begin
@@ -334,6 +349,13 @@ module api_extension(
             read_data_new = nts_read_data;
           end
 
+        DP_PREFIX:
+          begin
+            tmp_dp_cs     = cs_reg;
+            tmp_dp_we     = we_reg;
+            ready_new     = dp_ready;
+            read_data_new = dp_read_data;
+          end
 
         ROSC_PREFIX:
           begin
