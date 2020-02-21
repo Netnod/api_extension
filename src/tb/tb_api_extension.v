@@ -94,18 +94,35 @@ module tb_api_key_extension();
   reg [31 : 0]  dut_address;
   reg [31 : 0]  dut_write_data;
   wire [31 : 0] dut_read_data;
+
   wire          dut_dp_cs;
   wire          dut_dp_we;
   wire [23 : 0] dut_dp_address;
   wire [31 : 0] dut_dp_write_data;
   reg  [31 : 0] dut_dp_read_data;
   reg           dut_dp_ready;
+
   wire          dut_nts_cs;
   wire          dut_nts_we;
   wire [23 : 0] dut_nts_address;
   wire [31 : 0] dut_nts_write_data;
   reg  [31 : 0] dut_nts_read_data;
   reg           dut_nts_ready;
+
+  wire          dut_pp_cs;
+  wire          dut_pp_we;
+  wire [23 : 0] dut_pp_address;
+  wire [31 : 0] dut_pp_write_data;
+  reg  [31 : 0] dut_pp_read_data;
+  reg           dut_pp_ready;
+
+  wire          dut_merge_cs;
+  wire          dut_merge_we;
+  wire [7 : 0]  dut_merge_address;
+  wire [31 : 0] dut_merge_write_data;
+  reg  [31 : 0] dut_merge_read_data;
+  reg           dut_merge_ready;
+
   wire          dut_rosc_cs;
   wire          dut_rosc_we;
   wire [7 : 0]  dut_rosc_address;
@@ -126,6 +143,13 @@ module tb_api_key_extension();
                     .write_data(dut_write_data),
                     .read_data(dut_read_data),
 
+                    .pp_cs(dut_pp_cs),
+                    .pp_we(dut_pp_we),
+                    .pp_address(dut_pp_address),
+                    .pp_write_data(dut_pp_write_data),
+                    .pp_read_data(dut_pp_read_data),
+                    .pp_ready(dut_pp_ready),
+
                     .dp_cs(dut_dp_cs),
                     .dp_we(dut_dp_we),
                     .dp_address(dut_dp_address),
@@ -139,6 +163,13 @@ module tb_api_key_extension();
                     .nts_write_data(dut_nts_write_data),
                     .nts_read_data(dut_nts_read_data),
                     .nts_ready(dut_nts_ready),
+
+                    .merge_cs(dut_merge_cs),
+                    .merge_we(dut_merge_we),
+                    .merge_address(dut_merge_address),
+                    .merge_write_data(dut_merge_write_data),
+                    .merge_read_data(dut_merge_read_data),
+                    .merge_ready(dut_merge_ready),
 
                     .rosc_cs(dut_rosc_cs),
                     .rosc_we(dut_rosc_we),
@@ -245,7 +276,8 @@ module tb_api_key_extension();
   // wait_ready()
   //----------------------------------------------------------------
   task wait_ready;
-    begin
+    begin : wait_ready_
+      integer cnt;
       $display("wait_ready: called.");
       #(4 * CLK_PERIOD);
       while (dut_status == 1'h1)
@@ -279,8 +311,12 @@ module tb_api_key_extension();
       dut_write_data     = 32'h0;
       dut_dp_read_data   = 32'h0;
       dut_dp_ready       = 1'h0;
+      dut_pp_read_data   = 32'h0;
+      dut_pp_ready       = 1'h0;
       dut_nts_read_data  = 32'h0;
       dut_nts_ready      = 1'h0;
+      dut_merge_read_data= 32'h0;
+      dut_merge_ready    = 1'h0;
       dut_rosc_read_data = 32'h0;
       dut_rosc_ready     = 1'h0;
 
@@ -445,7 +481,7 @@ module tb_api_key_extension();
       dut_dp_ready = 1'h1;
 
       dut_command = COMMAND_WRITE;
-      dut_address = 32'h10000002;
+      dut_address = 32'h40000002;
       dut_write_data = 32'hbeefbeef;
       wait_ready();
       #(4 * CLK_PERIOD);
@@ -499,6 +535,37 @@ module tb_api_key_extension();
     end
   endtask // tc_write_nts
 
+  //----------------------------------------------------------------
+  // tc_write_merge
+  //----------------------------------------------------------------
+  task tc_write_merge;
+    begin
+      inc_tc_ctr();
+      $display("tc_write_merge: started.");
+
+      dut_merge_ready = 1'h1;
+
+      dut_command = COMMAND_WRITE;
+      dut_address = 32'h600000ff;
+      dut_write_data = 32'hc0fef00d;
+      wait_ready();
+      #(4 * CLK_PERIOD);
+
+      if ((dut_merge_write_data == 32'hc0fef00d) &&
+          (dut_merge_address == 24'h0000ff))
+        $display("tc_write_nts: Correct data and address written.");
+      else
+        $display("tc_write_nts: Incorrect data and address written:: 0x%08x to 0x%06x",
+                 dut_merge_write_data, dut_merge_address);
+
+      #(4 * CLK_PERIOD);
+      dut_command = COMMAND_IDLE;
+      #(4 * CLK_PERIOD);
+
+      $display("tc_write_nts0: completed.");
+      $display("\n");
+    end
+  endtask // tc_write_nts
 
   //----------------------------------------------------------------
   // main
@@ -518,6 +585,7 @@ module tb_api_key_extension();
       tc_read_rosc();
       tc_write_dp();
       tc_write_nts();
+      tc_write_merge();
       display_test_results();
 
       $display("");

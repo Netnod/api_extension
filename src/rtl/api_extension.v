@@ -81,6 +81,13 @@ module api_extension(
                      input wire  [31 : 0] dp_read_data,
                      input wire           dp_ready,
 
+                     output wire          merge_cs,
+                     output wire          merge_we,
+                     output wire [7 : 0]  merge_address,
+                     output wire [31 : 0] merge_write_data,
+                     input wire  [31 : 0] merge_read_data,
+                     input wire           merge_ready,
+
                      output wire          rosc_cs,
                      output wire          rosc_we,
                      output wire [7 : 0]  rosc_address,
@@ -98,6 +105,7 @@ module api_extension(
   localparam PP_PREFIX        = 8'h10;
   localparam NTS_PREFIX       = 8'h20;
   localparam DP_PREFIX        = 8'h40;
+  localparam MERGE_PREFIX     = 8'h60;
   localparam ROSC_PREFIX      = 8'hfe;
 
   // The API for the API extension itself.
@@ -111,7 +119,7 @@ module api_extension(
 
   localparam CORE_NAME0       = 32'h6170692d; // "api-"
   localparam CORE_NAME1       = 32'h65787420; // "ext "
-  localparam CORE_VERSION     = 32'h302e3231; // "0.21"
+  localparam CORE_VERSION     = 32'h302e3232; // "0.22"
 
   localparam COMMAND_IDLE     = 2'h0;
   localparam COMMAND_READ     = 2'h1;
@@ -186,6 +194,8 @@ module api_extension(
   reg tmp_pp_we;
   reg tmp_dp_cs;
   reg tmp_dp_we;
+  reg tmp_merge_cs;
+  reg tmp_merge_we;
   reg tmp_rosc_cs;
   reg tmp_rosc_we;
   reg address_error;
@@ -211,6 +221,11 @@ module api_extension(
   assign dp_we           = tmp_dp_we;
   assign dp_address      = address_reg[23 : 0];
   assign dp_write_data   = write_data_reg;
+
+  assign merge_cs         = tmp_merge_cs;
+  assign merge_we         = tmp_merge_we;
+  assign merge_address    = address_reg[7 : 0];
+  assign merge_write_data = write_data_reg;
 
   assign rosc_cs         = tmp_rosc_cs;
   assign rosc_we         = tmp_rosc_we;
@@ -293,6 +308,8 @@ module api_extension(
       tmp_pp_we     = 1'h0;
       tmp_dp_cs     = 1'h0;
       tmp_dp_we     = 1'h0;
+      tmp_merge_cs  = 1'h0;
+      tmp_merge_we  = 1'h0;
       tmp_rosc_cs   = 1'h0;
       tmp_rosc_we   = 1'h0;
       ready_new     = 1'h0;
@@ -355,6 +372,14 @@ module api_extension(
             tmp_dp_we     = we_reg;
             ready_new     = dp_ready;
             read_data_new = dp_read_data;
+          end
+
+        MERGE_PREFIX:
+          begin
+            tmp_merge_cs  = cs_reg;
+            tmp_merge_we  = we_reg;
+            ready_new     = merge_ready;
+            read_data_new = merge_read_data;
           end
 
         ROSC_PREFIX:
